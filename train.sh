@@ -17,8 +17,7 @@ model_dir=models/${dataset_name}/${type}
 mkdir -p ${model_dir}
 set -e
 ## Training and evaluating the model on training and validation data.
-# python3 -u code2vec.py --reps ast cfg ddg --max_contexts '{"ast":"200", "cfg":"10", "ddg":"100"}' --data ${data} --test ${val_data} --save ${model_dir}/saved_model
+python3 -u run.py --reps ast cfg ddg --max_contexts '{"ast":"200", "cfg":"10", "ddg":"100"}' --data ${data} --test ${val_data} --save ${model_dir}/saved_model
 
 ## Evaluate a trained model on test data (by loading the model)
-python3 -u code2vec.py --reps ast cfg ddg --max_contexts '{"ast":"200", "cfg":"10", "ddg":"100"}' --load ${model_dir}/saved_model --test ${test_data}
-#
+# python3 -u run.py --reps ast cfg ddg --max_contexts '{"ast":"200", "cfg":"10", "ddg":"100"}' --load ${model_dir}/saved_model --test ${test_data}

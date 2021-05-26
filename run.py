@@ -1,7 +1,7 @@
 import os
 from vocabularies import VocabType
 from config import Config
-from interactive_predict import InteractivePredictor
+# from interactive_predict import InteractivePredictor
 from model_base import Code2VecModelBase
 
 
