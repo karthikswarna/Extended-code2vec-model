@@ -2,6 +2,7 @@ from math import ceil
 from typing import Optional
 import logging
 from argparse import ArgumentParser
+import json
 import sys
 import os
 
@@ -33,8 +34,6 @@ class Config:
                                  'size.')
         parser.add_argument('--predict', action='store_true',
                             help='execute the interactive prediction shell')
-        parser.add_argument("-fw", "--framework", dest="dl_framework", choices=['keras', 'tensorflow'],
-                            default='tensorflow', help="deep learning framework to use.")
         parser.add_argument("-v", "--verbose", dest="verbose_mode", type=int, required=False, default=1,
                             help="verbose mode (should be in {0,1,2}).")
         parser.add_argument("-lp", "--logs-path", dest="logs_path", metavar="FILE", required=False,
@@ -43,7 +42,11 @@ class Config:
                             help='use tensorboard during training')
         parser.add_argument("--reps", nargs="+", dest="reps", default=["ast", "cfg", "ddg"],
                             help='representations included in the dataset')
-
+        parser.add_argument("--max_contexts", dest="max_contexts", type=json.loads, default='{"ast":"200", "cfg":"10", "cdg":"50", "ddg":"100"}',
+                            help='maximum number of path contexts to be taken from each type of paths')
+        
+        # parser.add_argument("-fw", "--framework", dest="dl_framework", choices=['keras', 'tensorflow'], default='tensorflow', help="deep learning framework to use.")
+        
         return parser
 
     def set_defaults(self):
@@ -60,7 +63,6 @@ class Config:
         self.MAX_TO_KEEP = 10
 
         # model hyper-params
-        self.MAX_CONTEXTS: Dict[str, int] = {'ast': 200, 'cfg': 10, 'cdg': 50, 'ddg': 100}
         self.MAX_TOKEN_VOCAB_SIZE = 1301136
         self.MAX_TARGET_VOCAB_SIZE = 261245
         self.MAX_PATH_VOCAB_SIZE = 911417
@@ -86,9 +88,13 @@ class Config:
         self.SAVE_T2V = args.save_t2v
         self.VERBOSE_MODE = args.verbose_mode
         self.LOGS_PATH = args.logs_path
-        self.DL_FRAMEWORK = 'tensorflow' if not args.dl_framework else args.dl_framework
         self.USE_TENSORBOARD = args.use_tensorboard
         self.CODE_REPRESENTATIONS = args.reps
+        self.MAX_CONTEXTS = args.max_contexts
+        for k, v in self.MAX_CONTEXTS.items():
+            self.MAX_CONTEXTS[k] = int(v)
+
+       # self.DL_FRAMEWORK = 'tensorflow' if not args.dl_framework else args.dl_framework
 
     def __init__(self, set_defaults: bool = False, load_from_args: bool = False, verify: bool = False):
         self.NUM_TRAIN_EPOCHS: int = 0
@@ -118,19 +124,19 @@ class Config:
         self.SEPARATE_OOV_AND_PAD: bool = False
 
         # Automatically filled by `args`.
-        self.PREDICT: bool = False   # TODO: update README;
+        self.PREDICT: bool = False
         self.MODEL_SAVE_PATH: Optional[str] = None
         self.MODEL_LOAD_PATH: Optional[str] = None
         self.TRAIN_DATA_PATH_PREFIX: Optional[str] = None
         self.TEST_DATA_PATH: Optional[str] = ''
         self.RELEASE: bool = False
         self.EXPORT_CODE_VECTORS: bool = False
-        self.SAVE_W2V: Optional[str] = None   # TODO: update README;
-        self.SAVE_T2V: Optional[str] = None   # TODO: update README;
+        self.SAVE_W2V: Optional[str] = None
+        self.SAVE_T2V: Optional[str] = None
         self.VERBOSE_MODE: int = 0
         self.LOGS_PATH: Optional[str] = None
-        self.DL_FRAMEWORK: str = ''  # in {'keras', 'tensorflow'}
         self.USE_TENSORBOARD: bool = False
+        # self.DL_FRAMEWORK: str = ''  # in {'keras', 'tensorflow'}
 
         # Automatically filled by `Code2VecModelBase._init_num_of_examples()`.
         self.NUM_TRAIN_EXAMPLES: int = 0
@@ -144,6 +150,9 @@ class Config:
             self.load_from_args()
         if verify:
             self.verify()
+
+        print(self.CODE_REPRESENTATIONS)
+        print(self.MAX_CONTEXTS)
 
     @property
     def context_vector_size(self) -> int:
@@ -241,8 +250,8 @@ class Config:
         if self.is_loading and not os.path.isdir(self.model_load_dir):
             raise ValueError("Model load dir `{model_load_dir}` does not exist.".format(
                 model_load_dir=self.model_load_dir))
-        if self.DL_FRAMEWORK not in {'tensorflow', 'keras'}:
-            raise ValueError("config.DL_FRAMEWORK must be in {'tensorflow', 'keras'}.")
+        # if self.DL_FRAMEWORK not in {'tensorflow', 'keras'}:
+        #     raise ValueError("config.DL_FRAMEWORK must be in {'tensorflow', 'keras'}.")
 
     def __iter__(self):
         for attr_name in dir(self):

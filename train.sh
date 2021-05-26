@@ -6,13 +6,19 @@
 # test_data: by default, points to the validation set, since this is the set that
 #   will be evaluated after each training iteration. If you wish to test
 #   on the final (held-out) test set, change 'val' to 'test'.
-type=FFmpeg_ast_cfg_ddg
-dataset_name=FFmpeg_ast_cfg_ddg
-data_dir=data/${dataset_name}
-data=${data_dir}/${dataset_name}
-test_data=${data_dir}/${dataset_name}.val.c2v
-model_dir=models/${type}
+type=ast_cfg_ddg
+dataset_name=sumatrapdf
+data_dir=data/${dataset_name}/${type}
+data=${data_dir}/${dataset_name}_${type}
+val_data=${data_dir}/${dataset_name}_${type}.val.c2v
+test_data=${data_dir}/${dataset_name}_${type}.test.c2v
+model_dir=models/${dataset_name}/${type}
 
 mkdir -p ${model_dir}
 set -e
-python3 -u code2vec.py --data ${data} --test ${test_data} --save ${model_dir}/saved_model
+## Training and evaluating the model on training and validation data.
+# python3 -u code2vec.py --reps ast cfg ddg --max_contexts '{"ast":"200", "cfg":"10", "ddg":"100"}' --data ${data} --test ${val_data} --save ${model_dir}/saved_model
+
+## Evaluate a trained model on test data (by loading the model)
+python3 -u code2vec.py --reps ast cfg ddg --max_contexts '{"ast":"200", "cfg":"10", "ddg":"100"}' --load ${model_dir}/saved_model --test ${test_data}
+#

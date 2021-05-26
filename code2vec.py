@@ -4,17 +4,15 @@ from config import Config
 from interactive_predict import InteractivePredictor
 from model_base import Code2VecModelBase
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def load_model_dynamically(config: Config) -> Code2VecModelBase:
-    assert config.DL_FRAMEWORK in {'tensorflow', 'keras'}
+    # assert config.DL_FRAMEWORK in {'tensorflow', 'keras'}
     # if config.DL_FRAMEWORK == 'tensorflow':
     #     from tensorflow_model import Code2VecModel
     # elif config.DL_FRAMEWORK == 'keras':
         # from keras_model import Code2VecModel
 
     from keras_model import Code2VecModel
-
     return Code2VecModel(config)
 
 
