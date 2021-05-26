@@ -22,7 +22,7 @@
             
             - ```--reps``` takes a space separated list of representations. Allowed values are 'ast', 'cfg', 'cdg', 'ddg'.
             
-            - ```--max_context``` takes a JSON object where each key is a representation, and its corresponding value is the maximum number of paths for that representation. 
+            - ```--max_contexts``` takes a JSON object where each key is a representation, and its corresponding value is the maximum number of paths for that representation. 
 
         - You can edit the configuration hyper-parameters in the file ```config.py```, as explained [here](https://github.com/tech-srl/code2vec#configuration).
         
