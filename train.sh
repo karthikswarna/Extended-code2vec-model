@@ -7,7 +7,7 @@
 #   will be evaluated after each training iteration. If you wish to test
 #   on the final (held-out) test set, change 'val' to 'test'.
 type=ast_cfg_ddg
-dataset_name=sumatrapdf
+dataset_name=testdata
 data_dir=data/${dataset_name}/${type}
 data=${data_dir}/${dataset_name}_${type}
 val_data=${data_dir}/${dataset_name}_${type}.val.c2v

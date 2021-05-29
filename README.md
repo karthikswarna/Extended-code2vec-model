@@ -48,6 +48,11 @@
 * The datasets we have created for our project can be found [here](https://drive.google.com/file/d/1CmQSOVvoR8zObc-Rbh8Un5d3dNFvCfbF/view?usp=sharing).
 
 
+## **Testing the model**
+* You can test if all the dependencies are properly installed by training the model on the ```testdata``` we have provided. Before training just set the following parameteres in the ```config.py``` file.
+        
+        self.TRAIN_BATCH_SIZE = 2
+        self.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION = 2
 
 ## **Team**
 In case of any queries or if you would like to give any suggestions, please feel free to contact:

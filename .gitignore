@@ -1,7 +1,8 @@
 *.class
 *.lst
 **/models/**
-**/data/**
+logs/
+__pycache__
 **/.idea/**
 *.tar.gz
 **/log.txt
