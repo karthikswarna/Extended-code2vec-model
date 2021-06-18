@@ -16,7 +16,7 @@
 
     - **Training and Evaluating the model**
 
-        - Set the variables in ```train.sh``` to point it to the right dataset. By default, it points to our "sumatrapdf_ast_cfg_ddg" dataset, created using the [Path Extractor](https://github.com/karthikswarna/Path-Extractor-for-C) tool.
+        - Set the variables in ```train.sh``` to point it to the right dataset. By default, it points to our "testdata_ast_cfg_ddg" dataset, created using the [Path Extractor](https://github.com/karthikswarna/Path-Extractor-for-C) tool.
         
         - Uncomment one of the python commands in ```train.sh``` based on whether you are training the model or evaluating it on the test dataset. 
         
