@@ -18,68 +18,6 @@ class common:
             return stripped.lower()
 
     @staticmethod
-    def _load_vocab_from_histogram(path, min_count=0, start_from=0, return_counts=False):
-        with open(path, 'r') as file:
-            word_to_index = {}
-            index_to_word = {}
-            word_to_count = {}
-            next_index = start_from
-            for line in file:
-                line_values = line.rstrip().split(' ')
-                if len(line_values) != 2:
-                    continue
-                word = line_values[0]
-                count = int(line_values[1])
-                if count < min_count:
-                    continue
-                if word in word_to_index:
-                    continue
-                word_to_index[word] = next_index
-                index_to_word[next_index] = word
-                word_to_count[word] = count
-                next_index += 1
-        result = word_to_index, index_to_word, next_index - start_from
-        if return_counts:
-            result = (*result, word_to_count)
-        return result
-
-    @staticmethod
-    def load_vocab_from_histogram(path, min_count=0, start_from=0, max_size=None, return_counts=False):
-        if max_size is not None:
-            word_to_index, index_to_word, next_index, word_to_count = \
-                common._load_vocab_from_histogram(path, min_count, start_from, return_counts=True)
-            if next_index <= max_size:
-                results = (word_to_index, index_to_word, next_index)
-                if return_counts:
-                    results = (*results, word_to_count)
-                return results
-            # Take min_count to be one plus the count of the max_size'th word
-            min_count = sorted(word_to_count.values(), reverse=True)[max_size] + 1
-        return common._load_vocab_from_histogram(path, min_count, start_from, return_counts)
-
-    @staticmethod
-    def load_json(json_file):
-        data = []
-        with open(json_file, 'r') as file:
-            for line in file:
-                current_program = common.process_single_json_line(line)
-                if current_program is None:
-                    continue
-                for element, scope in current_program.items():
-                    data.append((element, scope))
-        return data
-
-    @staticmethod
-    def load_json_streaming(json_file):
-        with open(json_file, 'r') as file:
-            for line in file:
-                current_program = common.process_single_json_line(line)
-                if current_program is None:
-                    continue
-                for element, scope in current_program.items():
-                    yield (element, scope)
-
-    @staticmethod
     def save_word2vec_file(output_file, index_to_word, vocab_embedding_matrix: np.ndarray):
         assert len(vocab_embedding_matrix.shape) == 2
         vocab_size, embedding_dimension = vocab_embedding_matrix.shape
@@ -89,13 +27,6 @@ class common:
             word_str = index_to_word[word_idx]
             output_file.write(word_str + ' ')
             output_file.write(' '.join(map(str, vocab_embedding_matrix[word_idx])) + '\n')
-
-    @staticmethod
-    def calculate_max_contexts(file):
-        contexts_per_word = common.process_test_input(file)
-        return max(
-            [max(l, default=0) for l in [[len(contexts) for contexts in prog.values()] for prog in contexts_per_word]],
-            default=0)
 
     @staticmethod
     def binary_to_string(binary_string):
@@ -144,8 +75,8 @@ class common:
                 current_method_prediction_results.append_prediction(
                     suggestion_subtokens, single_method_prediction.topk_predicted_words_scores[i].item())
             topk_attention_per_context = [
-                (key, single_method_prediction.attention_per_context[key])
-                for key in sorted(single_method_prediction.attention_per_context,
+                (context, single_method_prediction.attention_per_context[context])
+                for context in sorted(single_method_prediction.attention_per_context,
                                   key=single_method_prediction.attention_per_context.get, reverse=True)
             ][:topk]
             for context, attention in topk_attention_per_context:

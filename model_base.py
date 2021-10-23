@@ -9,11 +9,12 @@ from config import Config
 
 
 class ModelEvaluationResults(NamedTuple):
-    topk_acc: float
-    subtoken_precision: float
-    subtoken_recall: float
-    subtoken_f1: float
+    topk_acc: Optional[float] = None
+    subtoken_precision: Optional[float] = None
+    subtoken_recall: Optional[float] = None
+    subtoken_f1: Optional[float] = None
     loss: Optional[float] = None
+    accuracy: Optional[float] = None
 
     def __str__(self):
         res_str = 'topk_acc: {topk_acc}, precision: {precision}, recall: {recall}, F1: {f1}'.format(
@@ -45,7 +46,10 @@ class Code2VecModelBase(abc.ABC):
             self._init_num_of_examples()
         self._log_model_configuration()
         self.vocabs = Code2VecVocabs(config)
-        self.vocabs.target_vocab.get_index_to_word_lookup_table()  # just to initialize it (if not already initialized)
+
+        if config.DOWNSTREAM_TASK == 'method_naming': # because target_vocab is None for classification
+            self.vocabs.target_vocab.get_index_to_word_lookup_table()  # just to initialize it (if not already initialized)
+
         self._load_or_create_inner_model()
         self._initialize()
 

@@ -5,7 +5,7 @@ from functools import reduce
 from typing import Dict, Tuple, NamedTuple, Union, Optional, Iterable
 
 from config import Config
-from vocabularies import Code2VecVocabs
+from vocabularies import Code2VecVocabs, _SpecialVocabWords_JoinedOovPad
 
 class EstimatorAction(Enum):
     Train = 'train'
@@ -81,8 +81,8 @@ class PathContextReader:
                                          self.vocabs.path_vocab.special_words.PAD,
                                          self.vocabs.token_vocab.special_words.PAD])
 
-        # Default value of an example. ex: [[OOV] [PAD,PAD,PAD] [PAD,PAD,PAD] .... [PAD,PAD,PAD]]
-        self.csv_record_defaults = [[self.vocabs.target_vocab.special_words.OOV]]
+        # Default value of an example. ex: [['OOV'], ['PAD,PAD,PAD'], ['PAD,PAD,PAD'], ...., ['PAD,PAD,PAD']]
+        self.csv_record_defaults = [[self.vocabs.target_vocab.special_words.OOV]] if self.vocabs.target_vocab is not None else [[_SpecialVocabWords_JoinedOovPad.OOV]]
         for rep in self.config.CODE_REPRESENTATIONS:
             # self.csv_record_defaults += [[(self.CONTEXT_PADDING + ' ') * self.config.MAX_CONTEXTS[rep]]]
             self.csv_record_defaults += ([[self.CONTEXT_PADDING]] * self.config.MAX_CONTEXTS[rep])
@@ -96,12 +96,13 @@ class PathContextReader:
     def create_needed_vocabs_lookup_tables(cls, vocabs: Code2VecVocabs):
         vocabs.token_vocab.get_word_to_index_lookup_table()
         vocabs.path_vocab.get_word_to_index_lookup_table()
-        vocabs.target_vocab.get_word_to_index_lookup_table()
+        if vocabs.target_vocab is not None:     # vocabs.target_vocab is None for classification.
+            vocabs.target_vocab.get_word_to_index_lookup_table()
 
     @tf.function
     def process_input_row(self, row_placeholder):
         # row_placeholder --> [example1, example2, example3, ...] where example is like 'label1 s11,p11,e11 s12,p12,e12 ... s1200,p1200,e1200'
-        # May be input for this function has only one row.
+        # Input for this function has only one row.
         # parts --> [[label1, label2, ...], ['s11,p11,e11', 's21,p21,e21', 's31,p31,e31',  ...], ['s12,p12,e12', 's22,p22,e22', 's32,p32,e32',  ...], ...]
         # csv default is --> [[OOV] [PAD,PAD,PAD] [PAD,PAD,PAD] .... [PAD,PAD,PAD]] i.e each tensor object in default value of each column
         parts = tf.io.decode_csv(
@@ -114,7 +115,6 @@ class PathContextReader:
         reader_input_tensors = {}
         for name, tensor in tensors._asdict().items():
             if name == "input_dict":
-                print("********************************************************************************")
                 temp_dict = {}
                 for name1, tensor1 in tensor.items():
                     temp_dict[name1] = None if tensor1 is None else tf.expand_dims(tensor1, axis=0)
@@ -159,12 +159,12 @@ class PathContextReader:
         # for e in dataset.as_numpy_iterator():
         #     print(e)
 
+        dataset = dataset.shuffle(self.config.SHUFFLE_BUFFER_SIZE, reshuffle_each_iteration=True)
         if self.repeat_endlessly:
             dataset = dataset.repeat()
         if self.estimator_action.is_train:
             if not self.repeat_endlessly and self.config.NUM_TRAIN_EPOCHS > 1:
                 dataset = dataset.repeat(self.config.NUM_TRAIN_EPOCHS)
-            dataset = dataset.shuffle(self.config.SHUFFLE_BUFFER_SIZE, reshuffle_each_iteration=True)
 
         # For every row, we get a pair of inputs, targets.
         dataset = dataset.map(self._map_raw_dataset_row_to_expected_model_input_form,
@@ -207,22 +207,28 @@ class PathContextReader:
         if self.estimator_action.is_evaluate:
             cond = any_contexts_is_valid  # scalar
         else:  # training
-            word_is_valid = tf.greater(
-                row_parts.target_index, self.vocabs.target_vocab.word_to_index[self.vocabs.target_vocab.special_words.OOV])  # scalar
-            cond = tf.logical_and(word_is_valid, any_contexts_is_valid)  # scalar
+            if self.config.DOWNSTREAM_TASK == 'method_naming':
+                word_is_valid = tf.greater(
+                    row_parts.target_index, self.vocabs.target_vocab.word_to_index[self.vocabs.target_vocab.special_words.OOV])  # scalar
+                cond = tf.logical_and(word_is_valid, any_contexts_is_valid)  # scalar
+            else: # classification
+                cond = (row_parts.target_index >= 0) and (row_parts.target_index < self.config.NUM_CLASSES)
 
         return cond  # scalar
 
     def _map_raw_dataset_row_to_expected_model_input_form(self, *row_parts) -> \
             Tuple[Union[tf.Tensor, Tuple[tf.Tensor, ...], Dict[str, tf.Tensor]], ...]:
         tensors = self._map_raw_dataset_row_to_input_tensors(*row_parts)
-        # print(tensors)
         return self.model_input_tensors_former.to_model_input_form(tensors)
 
     def _map_raw_dataset_row_to_input_tensors(self, *row_parts) -> ReaderInputTensors:
         row_parts = list(row_parts)
+
         target_str = row_parts[0]
-        target_index = self.vocabs.target_vocab.lookup_index(target_str)
+        if self.config.DOWNSTREAM_TASK == 'method_naming':
+            target_index = self.vocabs.target_vocab.lookup_index(target_str)
+        else:
+            target_index = int(row_parts[0])
 
         # row_parts will be [label, context1, context2, ...]
         # context_str will be [context1, context2, ...]
@@ -238,6 +244,7 @@ class PathContextReader:
                 tf.sparse.to_dense(sp_input=sparse_split_contexts, default_value=self.vocabs.token_vocab.special_words.PAD),
                 shape=[self.config.MAX_CONTEXTS[rep], 3])  # (max_contexts, 3)
 
+            # dense_split_contexts: [[token11, path1, token12], [token21, path2, token22], ...]
             # Squeeze converts [[x], [y], [z], ...] to [x, y, z, ...]
             path_source_token_strings = tf.squeeze(
                 tf.slice(dense_split_contexts, begin=[0, 0], size=[self.config.MAX_CONTEXTS[rep], 1]), axis=1)  # (max_contexts,)

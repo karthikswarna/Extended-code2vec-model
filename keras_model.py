@@ -88,8 +88,12 @@ class Code2VecModel(Code2VecModelBase):
             final_code_vectors = code_vectors[0]
 
         # "Decode": Now we use another dense layer to get the target word embedding from each code vector.
-        target_index = Dense(
-            self.vocabs.target_vocab.size, use_bias=False, activation='softmax', name='target_index')(final_code_vectors)
+        if self.config.DOWNSTREAM_TASK == 'method_naming':
+            target_index = Dense(
+                self.vocabs.target_vocab.size, use_bias=False, activation='softmax', name='target_index')(final_code_vectors)
+        else:
+            target_index = Dense(self.config.NUM_CLASSES, use_bias=False, activation='softmax', name='target_index')(final_code_vectors)
+
 
         # Wrap the layers into a Keras model, using our subtoken-metrics and the CE loss.
         # inputs = [path_source_token_input, path_input, path_target_token_input, context_valid_mask]
@@ -98,44 +102,56 @@ class Code2VecModel(Code2VecModelBase):
             inputs += [input_nodes[rep + '_path_source_token_input'], input_nodes[rep + '_path_input'], input_nodes[rep + '_path_target_token_input'], input_nodes[rep + '_context_valid_mask']]
         self.keras_train_model = keras.Model(inputs=inputs, outputs=target_index)
 
-        # Actual target word predictions (as strings). Used as a second output layer.
-        # Used for predict() and for the evaluation metrics calculations.
-        topk_predicted_words, topk_predicted_words_scores = TopKWordPredictionsLayer(
-            self.config.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION,
-            self.vocabs.target_vocab.get_index_to_word_lookup_table(),
-            name='target_string')(target_index)
 
-        # We use another dedicated Keras model for evaluation.
-        # The evaluation model outputs the `topk_predicted_words` as a 2nd output.
-        # The separation between train and eval models is for efficiency.
-        self.keras_eval_model = keras.Model(
-            inputs=inputs, outputs=[target_index, topk_predicted_words], name="code2vec-keras-model")
+
+        if self.config.DOWNSTREAM_TASK == 'method_naming':
+            # Actual target word predictions (as strings). Used as a second output layer.
+            # Used for predict() and for the evaluation metrics calculations.
+            topk_predicted_words, topk_predicted_words_scores = TopKWordPredictionsLayer(
+                self.config.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION,
+                self.vocabs.target_vocab.get_index_to_word_lookup_table(),
+                name='target_string')(target_index)
+
+            # We use another dedicated Keras model for evaluation.
+            # The evaluation model outputs the `topk_predicted_words` as a 2nd output.
+            # The separation between train and eval models is for efficiency.
+            self.keras_eval_model = keras.Model(
+                inputs=inputs, outputs=[target_index, topk_predicted_words], name="code2vec-keras-model")
+        else: # classification
+            self.keras_eval_model = keras.Model(
+                inputs=inputs, outputs=target_index, name="code2vec-keras-model")
+
+
 
         # We use another dedicated Keras function to produce predictions.
         # It have additional outputs than the original model.
         # It is based on the trained layers of the original model and uses their weights.
-        predict_outputs = tuple(KerasPredictionModelOutput(
-            target_index=target_index, code_vectors=code_vectors, attention_weights=attention_weights,
-            topk_predicted_words=topk_predicted_words, topk_predicted_words_scores=topk_predicted_words_scores))
-        self.keras_model_predict_function = K.function(inputs=inputs, outputs=predict_outputs)
+        # predict_outputs = tuple(KerasPredictionModelOutput(
+        #     target_index=target_index, code_vectors=code_vectors, attention_weights=attention_weights,
+        #     topk_predicted_words=topk_predicted_words, topk_predicted_words_scores=topk_predicted_words_scores))
+        # self.keras_model_predict_function = K.function(inputs=inputs, outputs=predict_outputs)
 
     def _create_metrics_for_keras_eval_model(self) -> Dict[str, List[Union[Callable, keras.metrics.Metric]]]:
-        top_k_acc_metrics = []
-        for k in range(1, self.config.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION + 1):
-            top_k_acc_metric = partial(
-                sparse_top_k_categorical_accuracy, k=k)
-            top_k_acc_metric.__name__ = 'top{k}_acc'.format(k=k)
-            top_k_acc_metrics.append(top_k_acc_metric)
-        predicted_words_filters = [
-            lambda word_strings: tf.not_equal(word_strings, self.vocabs.target_vocab.special_words.OOV),
-            lambda word_strings: tf.strings.regex_full_match(word_strings, r'^[a-zA-Z\|]+$')
-        ]
-        words_subtokens_metrics = [
-            WordsSubtokenPrecisionMetric(predicted_words_filters=predicted_words_filters, name='subtoken_precision'),
-            WordsSubtokenRecallMetric(predicted_words_filters=predicted_words_filters, name='subtoken_recall'),
-            WordsSubtokenF1Metric(predicted_words_filters=predicted_words_filters, name='subtoken_f1')
-        ]
-        return {'target_index': top_k_acc_metrics, 'target_string': words_subtokens_metrics}
+        if self.config.DOWNSTREAM_TASK == 'method_naming':
+            top_k_acc_metrics = []
+            for k in range(1, self.config.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION + 1):
+                top_k_acc_metric = partial(
+                    sparse_top_k_categorical_accuracy, k=k)
+                top_k_acc_metric.__name__ = 'top{k}_acc'.format(k=k)
+                top_k_acc_metrics.append(top_k_acc_metric)
+            predicted_words_filters = [
+                lambda word_strings: tf.not_equal(word_strings, self.vocabs.target_vocab.special_words.OOV),
+                lambda word_strings: tf.strings.regex_full_match(word_strings, r'^[a-zA-Z\|]+$')
+            ]
+            words_subtokens_metrics = [
+                WordsSubtokenPrecisionMetric(predicted_words_filters=predicted_words_filters, name='subtoken_precision'),
+                WordsSubtokenRecallMetric(predicted_words_filters=predicted_words_filters, name='subtoken_recall'),
+                WordsSubtokenF1Metric(predicted_words_filters=predicted_words_filters, name='subtoken_f1')
+            ]
+            return {'target_index': top_k_acc_metrics, 'target_string': words_subtokens_metrics}
+
+        else:   # classification
+            return ['accuracy']
 
     @classmethod
     def _create_optimizer(cls):
@@ -154,10 +170,16 @@ class Code2VecModel(Code2VecModelBase):
             loss='sparse_categorical_crossentropy',
             optimizer=optimizer)
 
-        self.keras_eval_model.compile(
-            loss={'target_index': 'sparse_categorical_crossentropy', 'target_string': zero_loss},
-            optimizer=optimizer,
-            metrics=self._create_metrics_for_keras_eval_model())
+        if self.config.DOWNSTREAM_TASK == 'method_naming':
+            self.keras_eval_model.compile(
+                loss={'target_index': 'sparse_categorical_crossentropy', 'target_string': zero_loss},
+                optimizer=optimizer,
+                metrics=self._create_metrics_for_keras_eval_model())
+        else:   # classification
+            self.keras_eval_model.compile(
+                loss='sparse_categorical_crossentropy',
+                optimizer=optimizer,
+                metrics=self._create_metrics_for_keras_eval_model())
 
     def _create_data_reader(self, estimator_action: EstimatorAction, repeat_endlessly: bool = False):
         return PathContextReader(
@@ -208,14 +230,26 @@ class Code2VecModel(Code2VecModelBase):
             val_data_input_reader.get_dataset(),
             steps=self.config.test_steps,
             verbose=self.config.VERBOSE_MODE)
-        k = self.config.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION
-        return ModelEvaluationResults(
-            topk_acc=eval_res[3:k+3],
-            subtoken_precision=eval_res[k+3],
-            subtoken_recall=eval_res[k+4],
-            subtoken_f1=eval_res[k+5],
-            loss=eval_res[1]
-        )
+
+        if self.config.DOWNSTREAM_TASK == 'method_naming':
+            k = self.config.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION
+            return ModelEvaluationResults(
+                topk_acc=eval_res[3:k+3],
+                subtoken_precision=eval_res[k+3],
+                subtoken_recall=eval_res[k+4],
+                subtoken_f1=eval_res[k+5],
+                loss=eval_res[1],
+                accuracy=None
+            )
+        else:   # classification
+            return ModelEvaluationResults(
+                topk_acc=None,
+                subtoken_precision=None,
+                subtoken_recall=None,
+                subtoken_f1=None,
+                loss=eval_res[0],
+                accuracy=eval_res[1]
+            )
 
     # This need to be updated in this file.
     def predict(self, predict_data_rows: Iterable[str]) -> List[ModelPredictionResults]:
@@ -323,6 +357,8 @@ class Code2VecModel(Code2VecModelBase):
 
     def _get_vocab_embedding_as_np_array(self, vocab_type: VocabType) -> np.ndarray:
         assert vocab_type in VocabType
+        if self.config.DOWNSTREAM_TASK == 'classification':
+            assert vocab_type is not VocabType.Target
 
         vocab_type_to_embedding_layer_mapping = {
             VocabType.Target: 'target_index',
@@ -363,8 +399,8 @@ class ModelEvaluationCallback(MultiBatchCallback):
         self.code2vec_model = code2vec_model
         self.avg_eval_duration: Optional[int] = None
         
-        log_dir_eval = "logs/metrics/eval_" + common.now_str()
-        self.file_writer = tf.summary.create_file_writer(log_dir_eval)
+        # log_dir_eval = "logs/metrics/eval_" + common.now_str()
+        # self.file_writer = tf.summary.create_file_writer(log_dir_eval)
         
         super(ModelEvaluationCallback, self).__init__(self.code2vec_model.config.NUM_TRAIN_BATCHES_TO_EVALUATE)
 
@@ -380,6 +416,7 @@ class ModelEvaluationCallback(MultiBatchCallback):
         else:
             self.code2vec_model.log('Evaluating... (takes ~{})'.format(
                 str(datetime.timedelta(seconds=int(self.avg_eval_duration)))))
+
         eval_start_time = time.time()
         evaluation_results = self.code2vec_model.evaluate()
         eval_duration = time.time() - eval_start_time
@@ -390,20 +427,25 @@ class ModelEvaluationCallback(MultiBatchCallback):
         self.code2vec_model.log('Done evaluating (took {}). Evaluation results:'.format(
             str(datetime.timedelta(seconds=int(eval_duration)))))
 
-        self.code2vec_model.log(
-            '    loss: {loss:.4f}, f1: {f1:.4f}, recall: {recall:.4f}, precision: {precision:.4f}'.format(
-                loss=evaluation_results.loss, f1=evaluation_results.subtoken_f1,
-                recall=evaluation_results.subtoken_recall, precision=evaluation_results.subtoken_precision))
-        top_k_acc_formated = ['top{}: {:.4f}'.format(i, acc) for i, acc in enumerate(evaluation_results.topk_acc, start=1)]
-        for top_k_acc_chunk in common.chunks(top_k_acc_formated, 5):
-            self.code2vec_model.log('    ' + (', '.join(top_k_acc_chunk)))
+        if self.code2vec_model.config.DOWNSTREAM_TASK == 'method_naming':     # Accuracy is reported only for classification.
+            self.code2vec_model.log(
+                '    loss: {loss:.4f}, f1: {f1:.4f}, recall: {recall:.4f}, precision: {precision:.4f}'.format(
+                    loss=evaluation_results.loss, f1=evaluation_results.subtoken_f1,
+                    recall=evaluation_results.subtoken_recall, precision=evaluation_results.subtoken_precision))
+            top_k_acc_formated = ['top{}: {:.4f}'.format(i, acc) for i, acc in enumerate(evaluation_results.topk_acc, start=1)]
+            for top_k_acc_chunk in common.chunks(top_k_acc_formated, 5):
+                self.code2vec_model.log('    ' + (', '.join(top_k_acc_chunk)))
+        else:   # classification
+            self.code2vec_model.log(
+                '    loss: {loss:.4f}, accuracy: {accuracy:.4f}'.format(
+                    loss=evaluation_results.loss, accuracy=evaluation_results.accuracy))
 
-        if self.code2vec_model.config.USE_TENSORBOARD:
-            with self.file_writer.as_default():
-                self.code2vec_model.log("*****************************************%^$#&*&(^*&%^#$^&*()&*(^&%^%#$%^&*******************************")
-                tf.summary.scalar('Subtoken_F1', data=evaluation_results.subtoken_f1, step=epoch + 1)
-                tf.summary.scalar('Subtoken_Recall', data=evaluation_results.subtoken_recall, step=epoch + 1)
-                tf.summary.scalar('Subtoken_Precision', data=evaluation_results.subtoken_precision, step=epoch + 1)
+        # if self.code2vec_model.config.USE_TENSORBOARD:
+        #     with self.file_writer.as_default():
+        #         self.code2vec_model.log("*****************************************%^$#&*&(^*&%^#$^&*()&*(^&%^%#$%^&*******************************")
+        #         tf.summary.scalar('Subtoken_F1', data=evaluation_results.subtoken_f1, step=epoch + 1)
+        #         tf.summary.scalar('Subtoken_Recall', data=evaluation_results.subtoken_recall, step=epoch + 1)
+        #         tf.summary.scalar('Subtoken_Precision', data=evaluation_results.subtoken_precision, step=epoch + 1)
 
 
 class _KerasModelInputTensorsFormer(ModelInputTensorsFormer):
@@ -426,7 +468,7 @@ class _KerasModelInputTensorsFormer(ModelInputTensorsFormer):
             inputs += (input_tensors.input_dict[rep + '_path_source_token_indices'], input_tensors.input_dict[rep + '_path_indices'],
                     input_tensors.input_dict[rep + '_path_target_token_indices'], input_tensors.input_dict[rep + '_context_valid_mask'])
 
-        if self.estimator_action.is_train:
+        if self.estimator_action.is_train or self.config.DOWNSTREAM_TASK == 'classification':
             targets = input_tensors.target_index
         else:
             targets = {'target_index': input_tensors.target_index, 'target_string': input_tensors.target_string}
@@ -460,8 +502,8 @@ class _KerasModelInputTensorsFormer(ModelInputTensorsFormer):
 
         return ReaderInputTensors(
             input_dict=input_dict,
-            target_index=targets if self.estimator_action.is_train else targets['target_index'],
-            target_string=targets['target_string'] if not self.estimator_action.is_train else None,
+            target_index=targets if (self.estimator_action.is_train or self.config.DOWNSTREAM_TASK) else targets['target_index'],
+            target_string=targets['target_string'] if not (self.estimator_action.is_train or self.config.DOWNSTREAM_TASK == 'classification') else None,
         )
         # return ReaderInputTensors(
         #     path_source_token_indices=inputs[0],

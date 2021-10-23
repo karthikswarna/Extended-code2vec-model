@@ -40,6 +40,10 @@ class Config:
                             help="path to store logs into. if not given logs are not saved to file.")
         parser.add_argument('-tb', '--tensorboard', dest='use_tensorboard', action='store_true',
                             help='use tensorboard during training')
+        parser.add_argument("-nc", "--num_classes", dest="num_classes", type=int, required=False, default=104,
+                            help="Number of classes among the code snippets (For Program Classification Task.)")
+        parser.add_argument('-task', '--task', dest='downstream_task', choices=['method_naming', 'classification'],
+                            default='method_naming', help='Downstream task to train the model on.')
         parser.add_argument("--reps", nargs="+", dest="reps", default=["ast", "cfg", "ddg"],
                             help='representations included in the dataset')
         parser.add_argument("--max_contexts", dest="max_contexts", type=json.loads, default='{"ast":"200", "cfg":"10", "cdg":"50", "ddg":"100"}',
@@ -89,6 +93,8 @@ class Config:
         self.VERBOSE_MODE = args.verbose_mode
         self.LOGS_PATH = args.logs_path
         self.USE_TENSORBOARD = args.use_tensorboard
+        self.NUM_CLASSES = args.num_classes
+        self.DOWNSTREAM_TASK = args.downstream_task
         self.CODE_REPRESENTATIONS = args.reps
         self.MAX_CONTEXTS = args.max_contexts
         for k, v in self.MAX_CONTEXTS.items():
@@ -136,6 +142,8 @@ class Config:
         self.VERBOSE_MODE: int = 0
         self.LOGS_PATH: Optional[str] = None
         self.USE_TENSORBOARD: bool = False
+        self.NUM_CLASSES: int = None
+        self.DOWNSTREAM_TASK: str = '' # in {'method_naming', 'classification'}
         # self.DL_FRAMEWORK: str = ''  # in {'keras', 'tensorflow'}
 
         # Automatically filled by `Code2VecModelBase._init_num_of_examples()`.
@@ -250,6 +258,11 @@ class Config:
         if self.is_loading and not os.path.isdir(self.model_load_dir):
             raise ValueError("Model load dir `{model_load_dir}` does not exist.".format(
                 model_load_dir=self.model_load_dir))
+        if self.DOWNSTREAM_TASK not in {'method_naming', 'classification'}:
+            raise ValueError("config.DOWNSTREAM_TASK must be in {'method_naming', 'classification'}.")
+        if self.DOWNSTREAM_TASK == 'classification' and self.NUM_CLASSES is None:
+            raise ValueError("num_classes should not be 'None' for Program Classification Task.")
+
         # if self.DL_FRAMEWORK not in {'tensorflow', 'keras'}:
         #     raise ValueError("config.DL_FRAMEWORK must be in {'tensorflow', 'keras'}.")
 
