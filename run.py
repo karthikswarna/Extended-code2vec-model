@@ -10,7 +10,7 @@ def load_model_dynamically(config: Config) -> Code2VecModelBase:
     # if config.DL_FRAMEWORK == 'tensorflow':
     #     from tensorflow_model import Code2VecModel
     # elif config.DL_FRAMEWORK == 'keras':
-        # from keras_model import Code2VecModel
+    #     from keras_model import Code2VecModel
 
     from keras_model import Code2VecModel
     return Code2VecModel(config)
@@ -39,6 +39,11 @@ if __name__ == '__main__':
                 config.log(
                     '    loss: {loss:.4f}, accuracy: {accuracy:.4f}'.format(
                     loss=eval_results.loss, accuracy=eval_results.accuracy))
+    if config.EXPORT_CODE_VECTORS and (config.is_training or config.is_loading):
+        code_vectors = model.export_code_vectors(config.is_training)
+        with open('code_vectors.csv', 'w') as f:
+            model._write_code_vectors(f, code_vectors)
+        config.log('Code vectors saved in csv format in: code_vectors.csv')
     if config.PREDICT:
         predictor = InteractivePredictor(config, model)
         predictor.predict()

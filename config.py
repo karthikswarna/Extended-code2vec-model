@@ -73,7 +73,7 @@ class Config:
         self.DEFAULT_EMBEDDINGS_SIZE = 128
         self.TOKEN_EMBEDDINGS_SIZE = self.DEFAULT_EMBEDDINGS_SIZE
         self.PATH_EMBEDDINGS_SIZE = self.DEFAULT_EMBEDDINGS_SIZE
-        self.CODE_VECTOR_SIZE = self.context_vector_size
+        self.CODE_VECTOR_SIZE = self.DEFAULT_EMBEDDINGS_SIZE
         self.TARGET_EMBEDDINGS_SIZE = self.CODE_VECTOR_SIZE
         self.DROPOUT_KEEP_RATE = 0.75
         self.SEPARATE_OOV_AND_PAD = False

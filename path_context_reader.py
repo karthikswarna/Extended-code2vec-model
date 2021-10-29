@@ -135,16 +135,16 @@ class PathContextReader:
             processed_row = self.process_input_row(data_row)
             yield processed_row
 
-    def get_dataset(self, input_data_rows: Optional = None) -> tf.data.Dataset:
+    def get_dataset(self, input_data_rows: Optional = None, is_training: bool = True, shuffle: bool = True) -> tf.data.Dataset:
         if self._dataset is None:
-            self._dataset = self._create_dataset_pipeline(input_data_rows)
+            self._dataset = self._create_dataset_pipeline(input_data_rows, is_training, shuffle)
         return self._dataset
 
-    def _create_dataset_pipeline(self, input_data_rows: Optional = None) -> tf.data.Dataset:
+    def _create_dataset_pipeline(self, input_data_rows: Optional = None, is_training: bool = True, shuffle: bool = True) -> tf.data.Dataset:
         if input_data_rows is None:
-            assert not self.estimator_action.is_predict
+            # assert not self.estimator_action.is_predict
             dataset = tf.data.experimental.CsvDataset(
-                self.config.data_path(is_evaluating=self.estimator_action.is_evaluate),
+                self.config.data_path(is_evaluating=not is_training),
                 record_defaults=self.csv_record_defaults, field_delim=' ', use_quote_delim=False,
                 buffer_size=self.config.CSV_BUFFER_SIZE)
         else:
@@ -159,7 +159,8 @@ class PathContextReader:
         # for e in dataset.as_numpy_iterator():
         #     print(e)
 
-        dataset = dataset.shuffle(self.config.SHUFFLE_BUFFER_SIZE, reshuffle_each_iteration=True)
+        if shuffle:
+            dataset = dataset.shuffle(self.config.SHUFFLE_BUFFER_SIZE, reshuffle_each_iteration=True)
         if self.repeat_endlessly:
             dataset = dataset.repeat()
         if self.estimator_action.is_train:

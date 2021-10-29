@@ -112,9 +112,12 @@ class Code2VecModelBase(abc.ABC):
         self.vocabs.save(self.config.get_vocabularies_path_from_model_path(model_save_path))
         self._save_inner_model(model_save_path)
 
-    def _write_code_vectors(self, file, code_vectors):
-        for vec in code_vectors:
-            file.write(' '.join(map(str, vec)) + '\n')
+    def _write_code_vectors(self, file, code_vectors_with_targets):
+        for target, vector in code_vectors_with_targets:
+            # file.write(str(target) + ' ')
+            for num in vector[0]:
+                file.write(str(num) + ',')
+            file.write('\n')
 
     def _get_attention_weight_per_context(
             self, path_source_strings: Iterable[str], path_strings: Iterable[str], path_target_strings: Iterable[str],

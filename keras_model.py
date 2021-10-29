@@ -29,6 +29,7 @@ class Code2VecModel(Code2VecModelBase):
         self.keras_train_model: Optional[keras.Model] = None
         self.keras_eval_model: Optional[keras.Model] = None
         self.keras_model_predict_function: Optional[K.GraphExecutionFunction] = None
+        self.get_code_vector_function: Optional[K.GraphExecutionFunction] = None
         self.training_status: ModelTrainingStatus = ModelTrainingStatus()
         self._checkpoint: Optional[tf.train.Checkpoint] = None
         self._checkpoint_manager: Optional[tf.train.CheckpointManager] = None
@@ -130,6 +131,7 @@ class Code2VecModel(Code2VecModelBase):
         #     target_index=target_index, code_vectors=code_vectors, attention_weights=attention_weights,
         #     topk_predicted_words=topk_predicted_words, topk_predicted_words_scores=topk_predicted_words_scores))
         # self.keras_model_predict_function = K.function(inputs=inputs, outputs=predict_outputs)
+        self.get_code_vector_function = K.function(inputs=inputs, outputs=final_code_vectors)
 
     def _create_metrics_for_keras_eval_model(self) -> Dict[str, List[Union[Callable, keras.metrics.Metric]]]:
         if self.config.DOWNSTREAM_TASK == 'method_naming':
@@ -215,7 +217,7 @@ class Code2VecModel(Code2VecModelBase):
         train_data_input_reader = self._create_data_reader(estimator_action=EstimatorAction.Train)
 
         training_history = self.keras_train_model.fit(
-            train_data_input_reader.get_dataset(),
+            train_data_input_reader.get_dataset(is_training=True, shuffle=True),
             steps_per_epoch=self.config.train_steps_per_epoch,
             epochs=self.config.NUM_TRAIN_EPOCHS,
             initial_epoch=self.training_status.nr_epochs_trained,
@@ -227,7 +229,7 @@ class Code2VecModel(Code2VecModelBase):
     def evaluate(self) -> Optional[ModelEvaluationResults]:
         val_data_input_reader = self._create_data_reader(estimator_action=EstimatorAction.Evaluate)
         eval_res = self.keras_eval_model.evaluate(
-            val_data_input_reader.get_dataset(),
+            val_data_input_reader.get_dataset(is_training=False, shuffle=True),
             steps=self.config.test_steps,
             verbose=self.config.VERBOSE_MODE)
 
@@ -250,6 +252,22 @@ class Code2VecModel(Code2VecModelBase):
                 loss=eval_res[0],
                 accuracy=eval_res[1]
             )
+
+    def export_code_vectors(self, is_training: bool = True):
+        data_input_reader = self._create_data_reader(estimator_action=EstimatorAction.Predict)
+        # input_iterator = data_input_reader.process_and_iterate_input_from_data_lines(predict_data_rows)
+        dataset = data_input_reader.get_dataset(is_training=is_training, shuffle=False)
+        # dataset = dataset.unbatch()
+
+        code_vectors = []
+        for input_row in dataset:
+            inputs = input_row[0][:4 * len(self.config.CODE_REPRESENTATIONS)]
+            target = input_row[1]['target_index'] if len(input_row[1]) > 1 else input_row[1]
+            target = target.numpy()[0]
+            vector = self.get_code_vector_function(inputs)
+            code_vectors.append((target, vector))
+
+        return code_vectors
 
     # This need to be updated in this file.
     def predict(self, predict_data_rows: Iterable[str]) -> List[ModelPredictionResults]:
