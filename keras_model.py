@@ -51,11 +51,11 @@ class Code2VecModel(Code2VecModelBase):
 
             # Input paths are indexes, we embed these here.
             paths_embedded = Embedding(
-                self.vocabs.path_vocab.size, self.config.PATH_EMBEDDINGS_SIZE, name=rep+'path_embedding')(path_input)
+                self.vocabs.path_vocab.size, self.config.PATH_EMBEDDINGS_SIZE, name=rep+'_path_embedding')(path_input)
 
             # Input terminals are indexes, we embed these here.
             token_embedding_shared_layer = Embedding(
-                self.vocabs.token_vocab.size, self.config.TOKEN_EMBEDDINGS_SIZE, name=rep+'token_embedding')
+                self.vocabs.token_vocab.size, self.config.TOKEN_EMBEDDINGS_SIZE, name=rep+'_token_embedding')
             path_source_token_embedded = token_embedding_shared_layer(path_source_token_input)
             path_target_token_embedded = token_embedding_shared_layer(path_target_token_input)
 
@@ -69,7 +69,7 @@ class Code2VecModel(Code2VecModelBase):
                 Dense(self.config.CODE_VECTOR_SIZE, use_bias=False, activation='tanh'))(context_embedded)
 
             # The final code vectors are received by applying attention to the "densed" context vectors.
-            code_vectors, attention_weights = AttentionLayer(name=rep+'attention')(
+            code_vectors, attention_weights = AttentionLayer(name=rep+'_attention')(
                 [context_after_dense, context_valid_mask])
 
             input_nodes[rep + '_path_source_token_input'] = path_source_token_input
@@ -79,16 +79,26 @@ class Code2VecModel(Code2VecModelBase):
             input_nodes[rep + '_code_vectors'] = code_vectors
             input_nodes[rep + '_attention_weights'] = attention_weights
 
+
+        # AGGREGATING CODE VECTORS FROM MULTIPLE REPRESENTATIONS
         code_vectors = [input_nodes[rep + '_code_vectors'] for rep in self.config.CODE_REPRESENTATIONS]
+        # if len(self.config.CODE_REPRESENTATIONS) > 1:
+        #     final_code_vectors = Concatenate()(code_vectors)
+        #     # final_code_vectors = tf.keras.layers.Average()(code_vectors)
+        #     # final_code_vectors = tf.keras.layers.Maximum()(code_vectors)
+        #     # Attention layer.
+        # else:
+        #     final_code_vectors = code_vectors[0]
+
+        # Use this if-else block instead of the above one to use a dense layer after concatenation.
         if len(self.config.CODE_REPRESENTATIONS) > 1:
-            final_code_vectors = Concatenate()(code_vectors)
-            # final_code_vectors = tf.keras.layers.Average()(code_vectors)
-            # final_code_vectors = tf.keras.layers.Maximum()(code_vectors)
-            # Attention layer.
+            concat_code_vectors = Concatenate()(code_vectors)
+            final_code_vectors = Dense(self.config.CODE_VECTOR_SIZE, use_bias=False, activation='tanh')(concat_code_vectors)
         else:
             final_code_vectors = code_vectors[0]
 
-        # "Decode": Now we use another dense layer to get the target word embedding from each code vector.
+
+        # PREDICTION (Decode): Now we use another dense layer to get the target word embedding from each code vector.
         if self.config.DOWNSTREAM_TASK == 'method_naming':
             target_index = Dense(
                 self.vocabs.target_vocab.size, use_bias=False, activation='softmax', name='target_index')(final_code_vectors)
@@ -96,7 +106,7 @@ class Code2VecModel(Code2VecModelBase):
             target_index = Dense(self.config.NUM_CLASSES, use_bias=False, activation='softmax', name='target_index')(final_code_vectors)
 
 
-        # Wrap the layers into a Keras model, using our subtoken-metrics and the CE loss.
+        # CREATE TRAINING MODEL: using our subtoken-metrics and the CE loss.
         # inputs = [path_source_token_input, path_input, path_target_token_input, context_valid_mask]
         inputs = []
         for rep in self.config.CODE_REPRESENTATIONS:
@@ -104,7 +114,9 @@ class Code2VecModel(Code2VecModelBase):
         self.keras_train_model = keras.Model(inputs=inputs, outputs=target_index)
 
 
-
+        # CREATE EVALUATION MODEL. We use another dedicated Keras model for evaluation.
+        # The evaluation model outputs the `topk_predicted_words` as a 2nd output.
+        # The separation between train and eval models is for efficiency.
         if self.config.DOWNSTREAM_TASK == 'method_naming':
             # Actual target word predictions (as strings). Used as a second output layer.
             # Used for predict() and for the evaluation metrics calculations.
@@ -113,9 +125,6 @@ class Code2VecModel(Code2VecModelBase):
                 self.vocabs.target_vocab.get_index_to_word_lookup_table(),
                 name='target_string')(target_index)
 
-            # We use another dedicated Keras model for evaluation.
-            # The evaluation model outputs the `topk_predicted_words` as a 2nd output.
-            # The separation between train and eval models is for efficiency.
             self.keras_eval_model = keras.Model(
                 inputs=inputs, outputs=[target_index, topk_predicted_words], name="code2vec-keras-model")
         else: # classification
