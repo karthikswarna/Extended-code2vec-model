@@ -113,8 +113,9 @@ class Code2VecModelBase(abc.ABC):
         self._save_inner_model(model_save_path)
 
     def _write_code_vectors(self, file, code_vectors_with_targets):
+        self.config.log("Saving code vectors to the file {}...".format(file.name))
         for target, vector in code_vectors_with_targets:
-            # file.write(str(target) + ' ')
+            file.write(str(target) + ' ')
             for num in vector[0]:
                 file.write(str(num) + ',')
             file.write('\n')

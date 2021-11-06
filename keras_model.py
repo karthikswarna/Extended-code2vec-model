@@ -82,20 +82,20 @@ class Code2VecModel(Code2VecModelBase):
 
         # AGGREGATING CODE VECTORS FROM MULTIPLE REPRESENTATIONS
         code_vectors = [input_nodes[rep + '_code_vectors'] for rep in self.config.CODE_REPRESENTATIONS]
-        # if len(self.config.CODE_REPRESENTATIONS) > 1:
-        #     final_code_vectors = Concatenate()(code_vectors)
-        #     # final_code_vectors = tf.keras.layers.Average()(code_vectors)
-        #     # final_code_vectors = tf.keras.layers.Maximum()(code_vectors)
-        #     # Attention layer.
-        # else:
-        #     final_code_vectors = code_vectors[0]
-
-        # Use this if-else block instead of the above one to use a dense layer after concatenation.
         if len(self.config.CODE_REPRESENTATIONS) > 1:
-            concat_code_vectors = Concatenate()(code_vectors)
-            final_code_vectors = Dense(self.config.CODE_VECTOR_SIZE, use_bias=False, activation='tanh')(concat_code_vectors)
+            final_code_vectors = Concatenate()(code_vectors)
+            # final_code_vectors = tf.keras.layers.Average()(code_vectors)
+            # final_code_vectors = tf.keras.layers.Maximum()(code_vectors)
+            # Attention layer.
         else:
             final_code_vectors = code_vectors[0]
+
+        # Use this if-else block instead of the above one to use a dense layer after concatenation.
+        # if len(self.config.CODE_REPRESENTATIONS) > 1:
+        #     concat_code_vectors = Concatenate()(code_vectors)
+        #     final_code_vectors = Dense(self.config.CODE_VECTOR_SIZE, use_bias=False, activation='tanh')(concat_code_vectors)
+        # else:
+        #     final_code_vectors = code_vectors[0]
 
 
         # PREDICTION (Decode): Now we use another dense layer to get the target word embedding from each code vector.
@@ -263,6 +263,7 @@ class Code2VecModel(Code2VecModelBase):
             )
 
     def export_code_vectors(self, is_training: bool = True):
+        self.config.log("Exporting code vectors using the latest checkpoint...")
         data_input_reader = self._create_data_reader(estimator_action=EstimatorAction.Predict)
         # input_iterator = data_input_reader.process_and_iterate_input_from_data_lines(predict_data_rows)
         dataset = data_input_reader.get_dataset(is_training=is_training, shuffle=False)
@@ -271,8 +272,8 @@ class Code2VecModel(Code2VecModelBase):
         code_vectors = []
         for input_row in dataset:
             inputs = input_row[0][:4 * len(self.config.CODE_REPRESENTATIONS)]
-            target = input_row[1]['target_index'] if len(input_row[1]) > 1 else input_row[1]
-            target = target.numpy()[0]
+            target = input_row[1]['target_string'] if len(input_row[1]) > 1 else input_row[1]
+            target = target.numpy()[0].decode('UTF-8')
             vector = self.get_code_vector_function(inputs)
             code_vectors.append((target, vector))
 
