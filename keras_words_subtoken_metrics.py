@@ -31,8 +31,6 @@ class WordsSubtokenMetricBase(tf.metrics.Metric):
         true_target_word_index = tf.cast(true_target_word, dtype=self.index_to_word_table.key_dtype)
         return self.index_to_word_table.lookup(true_target_word_index)
 
-    # Here, true_positives, false_positives, false_negatives are calculated. True Positives are the number of subwords predicted correctly.
-    # False Positives are number of subwords predicted wrongly. False Negatives are number of subwords that it failed to predict.
     def update_state(self, true_target_word, predictions, sample_weight=None):
         """Accumulates true positive, false positive and false negative statistics."""
         if sample_weight is not None:

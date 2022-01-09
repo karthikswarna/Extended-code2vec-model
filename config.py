@@ -49,8 +49,6 @@ class Config:
         parser.add_argument("--max_contexts", dest="max_contexts", type=json.loads, default='{"ast":"200", "cfg":"10", "cdg":"50", "ddg":"100"}',
                             help='maximum number of path contexts to be taken from each type of paths')
         
-        # parser.add_argument("-fw", "--framework", dest="dl_framework", choices=['keras', 'tensorflow'], default='tensorflow', help="deep learning framework to use.")
-        
         return parser
 
     def set_defaults(self):
@@ -100,8 +98,6 @@ class Config:
         for k, v in self.MAX_CONTEXTS.items():
             self.MAX_CONTEXTS[k] = int(v)
 
-       # self.DL_FRAMEWORK = 'tensorflow' if not args.dl_framework else args.dl_framework
-
     def __init__(self, set_defaults: bool = False, load_from_args: bool = False, verify: bool = False):
         self.NUM_TRAIN_EPOCHS: int = 0
         self.SAVE_EVERY_EPOCHS: int = 0
@@ -144,7 +140,6 @@ class Config:
         self.USE_TENSORBOARD: bool = False
         self.NUM_CLASSES: int = None
         self.DOWNSTREAM_TASK: str = '' # in {'method_naming', 'classification'}
-        # self.DL_FRAMEWORK: str = ''  # in {'keras', 'tensorflow'}
 
         # Automatically filled by `MocktailModelBase._init_num_of_examples()`.
         self.NUM_TRAIN_EXAMPLES: int = 0
@@ -258,9 +253,6 @@ class Config:
             raise ValueError("config.DOWNSTREAM_TASK must be in {'method_naming', 'classification'}.")
         if self.DOWNSTREAM_TASK == 'classification' and self.NUM_CLASSES is None:
             raise ValueError("num_classes should not be 'None' for Program Classification Task.")
-
-        # if self.DL_FRAMEWORK not in {'tensorflow', 'keras'}:
-        #     raise ValueError("config.DL_FRAMEWORK must be in {'tensorflow', 'keras'}.")
 
     def __iter__(self):
         for attr_name in dir(self):

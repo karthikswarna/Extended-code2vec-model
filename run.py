@@ -2,24 +2,12 @@ import os
 from vocabularies import VocabType
 from config import Config
 # from interactive_predict import InteractivePredictor
-from model_base import MocktailModelBase
-
-
-def load_model_dynamically(config: Config) -> MocktailModelBase:
-    # assert config.DL_FRAMEWORK in {'tensorflow', 'keras'}
-    # if config.DL_FRAMEWORK == 'tensorflow':
-    #     from tensorflow_model import MocktailModel
-    # elif config.DL_FRAMEWORK == 'keras':
-    #     from keras_model import MocktailModel
-
-    from keras_model import MocktailModel
-    return MocktailModel(config)
-
+from keras_model import MocktailModel
 
 if __name__ == '__main__':
     config = Config(set_defaults=True, load_from_args=True, verify=True)
 
-    model = load_model_dynamically(config)
+    model = MocktailModel(config)
     config.log('Done creating mocktail model')
 
     if config.is_training:

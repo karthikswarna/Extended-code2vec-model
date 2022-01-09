@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 ###########################################################
-# Change the following values to train a new model.
-# type: the name of the new model, only affects the saved file name.
-# dataset: the name of the dataset, as was preprocessed using preprocess.sh
-# test_data: by default, points to the validation set, since this is the set that
-#   will be evaluated after each training iteration. If you wish to test
-#   on the final (held-out) test set, change 'val' to 'test'.
+# Change the following values to train and test a new model.
+# type: its typically the representations included in the dataset, used in name of the dataset.
+# dataset: the name of the dataset.
+###########################################################
+# These values cannot be changed. 
+# This expects the data files with fixed names and in fixed paths based on `type` and `dataset` variables.
+# data_dir: main directory in which all train-test-val splits reside.
+# data: This is the name prefix of all the train-test-val splits and the dictionary file.
+# val_data: points to the validation set. This is the set that will be evaluated after each training iteration.
+# test_data: points to the test set
+
 type=ast_cfg_ddg
 dataset_name=testdata
 data_dir=data/${dataset_name}/${type}

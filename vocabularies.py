@@ -53,8 +53,6 @@ class Vocab:
             self.index_to_word[index] = word
 
         self.size = len(self.word_to_index)
-        # with open("dict.bin", 'wb') as f:
-        #     self.save_to_file(f)
 
     def save_to_file(self, file):
         # Notice: From historical reasons, a saved vocab doesn't include special words.
@@ -237,7 +235,6 @@ class MocktailVocabs:
             path_to_count = pickle.load(file)
             target_to_count = pickle.load(file) if self.config.DOWNSTREAM_TASK == 'method_naming' else None
         self.config.log('Done loading word frequencies dictionaries.')
-        # assert all(isinstance(item, WordFreqDictType) for item in {token_to_count, path_to_count, target_to_count})
         return MocktailWordFreqDicts(
             token_to_count=token_to_count, path_to_count=path_to_count, target_to_count=target_to_count)
 

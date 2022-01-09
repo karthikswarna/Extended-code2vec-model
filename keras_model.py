@@ -40,10 +40,6 @@ class MocktailModel(MocktailModelBase):
         # The valid mask indicates for each context whether it actually exists or it is just a padding.
         input_nodes = {}
         for rep in self.config.CODE_REPRESENTATIONS:
-            # input_nodes[rep + '_path_source_token_input'] = Input((self.config.MAX_CONTEXTS[rep],), dtype=tf.int32)
-            # input_nodes[rep + '_path_input'] = Input((self.config.MAX_CONTEXTS[rep],), dtype=tf.int32)
-            # input_nodes[rep + '_path_target_token_input'] = Input((self.config.MAX_CONTEXTS[rep],), dtype=tf.int32)
-            # input_nodes[rep + '_context_valid_mask'] = Input((self.config.MAX_CONTEXTS[rep],))
             path_source_token_input = Input((self.config.MAX_CONTEXTS[rep],), dtype=tf.int32)
             path_input = Input((self.config.MAX_CONTEXTS[rep],), dtype=tf.int32)
             path_target_token_input = Input((self.config.MAX_CONTEXTS[rep],), dtype=tf.int32)
@@ -84,18 +80,8 @@ class MocktailModel(MocktailModelBase):
         code_vectors = [input_nodes[rep + '_code_vectors'] for rep in self.config.CODE_REPRESENTATIONS]
         if len(self.config.CODE_REPRESENTATIONS) > 1:
             final_code_vectors = Concatenate()(code_vectors)
-            # final_code_vectors = tf.keras.layers.Average()(code_vectors)
-            # final_code_vectors = tf.keras.layers.Maximum()(code_vectors)
-            # Attention layer.
         else:
             final_code_vectors = code_vectors[0]
-
-        # Use this if-else block instead of the above one to use a dense layer after concatenation.
-        # if len(self.config.CODE_REPRESENTATIONS) > 1:
-        #     concat_code_vectors = Concatenate()(code_vectors)
-        #     final_code_vectors = Dense(self.config.CODE_VECTOR_SIZE, use_bias=False, activation='tanh')(concat_code_vectors)
-        # else:
-        #     final_code_vectors = code_vectors[0]
 
 
         # PREDICTION (Decode): Now we use another dense layer to get the target word embedding from each code vector.
@@ -119,7 +105,7 @@ class MocktailModel(MocktailModelBase):
         # The separation between train and eval models is for efficiency.
         if self.config.DOWNSTREAM_TASK == 'method_naming':
             # Actual target word predictions (as strings). Used as a second output layer.
-            # Used for predict() and for the evaluation metrics calculations.
+            # Can be used for predict() and for the evaluation metrics calculations.
             topk_predicted_words, topk_predicted_words_scores = TopKWordPredictionsLayer(
                 self.config.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION,
                 self.vocabs.target_vocab.get_index_to_word_lookup_table(),
@@ -201,9 +187,6 @@ class MocktailModel(MocktailModelBase):
             repeat_endlessly=repeat_endlessly)
 
     def _create_train_callbacks(self) -> List[Callback]:
-        # TODO: do we want to use early stopping? if so, use the right chechpoint manager and set the correct
-        #       `monitor` quantity (example: monitor='val_acc', mode='max')
-
         keras_callbacks = [
             ModelTrainingStatusTrackerCallback(self.training_status),
             ModelTrainingProgressLoggerCallback(self.config, self.training_status),
@@ -265,9 +248,7 @@ class MocktailModel(MocktailModelBase):
     def export_code_vectors(self, is_training: bool = True):
         self.config.log("Exporting code vectors using the latest checkpoint...")
         data_input_reader = self._create_data_reader(estimator_action=EstimatorAction.Predict)
-        # input_iterator = data_input_reader.process_and_iterate_input_from_data_lines(predict_data_rows)
         dataset = data_input_reader.get_dataset(is_training=is_training, shuffle=False)
-        # dataset = dataset.unbatch()
 
         code_vectors = []
         for input_row in dataset:
@@ -370,9 +351,7 @@ class MocktailModel(MocktailModelBase):
     def _get_checkpoint(self):
         assert self.keras_train_model is not None and self.keras_train_model.optimizer is not None
         if self._checkpoint is None:
-            # TODO: we would like to save (& restore) the `nr_epochs_trained`.
             self._checkpoint = tf.train.Checkpoint(
-                # nr_epochs_trained=tf.Variable(self.training_status.nr_epochs_trained, name='nr_epochs_trained'),
                 optimizer=self.keras_train_model.optimizer, model=self.keras_train_model)
         return self._checkpoint
 
@@ -427,9 +406,6 @@ class ModelEvaluationCallback(MultiBatchCallback):
         self.mocktail_model = mocktail_model
         self.avg_eval_duration: Optional[int] = None
         
-        # log_dir_eval = "logs/metrics/eval_" + common.now_str()
-        # self.file_writer = tf.summary.create_file_writer(log_dir_eval)
-        
         super(ModelEvaluationCallback, self).__init__(self.mocktail_model.config.NUM_TRAIN_BATCHES_TO_EVALUATE)
 
     def on_epoch_end(self, epoch, logs=None):
@@ -468,12 +444,6 @@ class ModelEvaluationCallback(MultiBatchCallback):
                 '    loss: {loss:.4f}, accuracy: {accuracy:.4f}'.format(
                     loss=evaluation_results.loss, accuracy=evaluation_results.accuracy))
 
-        # if self.mocktail_model.config.USE_TENSORBOARD:
-        #     with self.file_writer.as_default():
-        #         self.mocktail_model.log("*****************************************%^$#&*&(^*&%^#$^&*()&*(^&%^%#$%^&*******************************")
-        #         tf.summary.scalar('Subtoken_F1', data=evaluation_results.subtoken_f1, step=epoch + 1)
-        #         tf.summary.scalar('Subtoken_Recall', data=evaluation_results.subtoken_recall, step=epoch + 1)
-        #         tf.summary.scalar('Subtoken_Precision', data=evaluation_results.subtoken_precision, step=epoch + 1)
 
 
 class _KerasModelInputTensorsFormer(ModelInputTensorsFormer):
@@ -533,17 +503,6 @@ class _KerasModelInputTensorsFormer(ModelInputTensorsFormer):
             target_index=targets if (self.estimator_action.is_train or self.config.DOWNSTREAM_TASK) else targets['target_index'],
             target_string=targets['target_string'] if not (self.estimator_action.is_train or self.config.DOWNSTREAM_TASK == 'classification') else None,
         )
-        # return ReaderInputTensors(
-        #     path_source_token_indices=inputs[0],
-        #     path_indices=inputs[1],
-        #     path_target_token_indices=inputs[2],
-        #     context_valid_mask=inputs[3],
-        #     target_index=targets if self.estimator_action.is_train else targets['target_index'],
-        #     target_string=targets['target_string'] if not self.estimator_action.is_train else None,
-        #     path_source_token_strings=inputs[4] if self.estimator_action.is_predict else None,
-        #     path_strings=inputs[5] if self.estimator_action.is_predict else None,
-        #     path_target_token_strings=inputs[6] if self.estimator_action.is_predict else None
-        # )
 
 
 """Used for convenient-and-clear access to raw prediction result parts (by their names)."""
