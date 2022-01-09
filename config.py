@@ -32,8 +32,8 @@ class Config:
         parser.add_argument('--release', action='store_true',
                             help='if specified and loading a trained model, release the loaded model for a lower model '
                                  'size.')
-        parser.add_argument('--predict', action='store_true',
-                            help='execute the interactive prediction shell')
+        # parser.add_argument('--predict', action='store_true',
+        #                     help='execute the interactive prediction shell')
         parser.add_argument("-v", "--verbose", dest="verbose_mode", type=int, required=False, default=1,
                             help="verbose mode (should be in {0,1,2}).")
         parser.add_argument("-lp", "--logs-path", dest="logs_path", metavar="FILE", required=False,
@@ -79,7 +79,7 @@ class Config:
     def load_from_args(self):
         args = self.arguments_parser().parse_args()
         # Automatically filled, do not edit:
-        self.PREDICT = args.predict
+        # self.PREDICT = args.predict
         self.MODEL_SAVE_PATH = args.save_path
         self.MODEL_LOAD_PATH = args.load_path
         self.TRAIN_DATA_PATH_PREFIX = args.data_path
@@ -126,7 +126,7 @@ class Config:
         self.SEPARATE_OOV_AND_PAD: bool = False
 
         # Automatically filled by `args`.
-        self.PREDICT: bool = False
+        # self.PREDICT: bool = False
         self.MODEL_SAVE_PATH: Optional[str] = None
         self.MODEL_LOAD_PATH: Optional[str] = None
         self.TRAIN_DATA_PATH_PREFIX: Optional[str] = None

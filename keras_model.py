@@ -117,16 +117,16 @@ class MocktailModel(MocktailModelBase):
             self.keras_eval_model = keras.Model(
                 inputs=inputs, outputs=target_index, name="mocktail-keras-model")
 
+        # Keras Function to get the code embeddings
+        self.get_code_vector_function = K.function(inputs=inputs, outputs=final_code_vectors)
 
-
-        # We use another dedicated Keras function to produce predictions.
+        # Keras function to produce predictions.
         # It have additional outputs than the original model.
         # It is based on the trained layers of the original model and uses their weights.
         # predict_outputs = tuple(KerasPredictionModelOutput(
         #     target_index=target_index, code_vectors=code_vectors, attention_weights=attention_weights,
         #     topk_predicted_words=topk_predicted_words, topk_predicted_words_scores=topk_predicted_words_scores))
         # self.keras_model_predict_function = K.function(inputs=inputs, outputs=predict_outputs)
-        self.get_code_vector_function = K.function(inputs=inputs, outputs=final_code_vectors)
 
     def _create_metrics_for_keras_eval_model(self) -> Dict[str, List[Union[Callable, keras.metrics.Metric]]]:
         if self.config.DOWNSTREAM_TASK == 'method_naming':
@@ -261,40 +261,40 @@ class MocktailModel(MocktailModelBase):
         return code_vectors
 
     # TODO: Modify the predict functionality for Mocktail model.
-    def predict(self, predict_data_rows: Iterable[str]) -> List[ModelPredictionResults]:
-        predict_input_reader = self._create_data_reader(estimator_action=EstimatorAction.Predict)
-        input_iterator = predict_input_reader.process_and_iterate_input_from_data_lines(predict_data_rows)
-        all_model_prediction_results = []
-        for input_row in input_iterator:
-            # perform the actual prediction and get raw results.
-            input_for_predict = input_row[0][:4]  # we want only the relevant input vectors (w.o. the targets).
-            prediction_results = self.keras_model_predict_function(input_for_predict)
+    # def predict(self, predict_data_rows: Iterable[str]) -> List[ModelPredictionResults]:
+    #     predict_input_reader = self._create_data_reader(estimator_action=EstimatorAction.Predict)
+    #     input_iterator = predict_input_reader.process_and_iterate_input_from_data_lines(predict_data_rows)
+    #     all_model_prediction_results = []
+    #     for input_row in input_iterator:
+    #         # perform the actual prediction and get raw results.
+    #         input_for_predict = input_row[0][:4]  # we want only the relevant input vectors (w.o. the targets).
+    #         prediction_results = self.keras_model_predict_function(input_for_predict)
 
-            # make `input_row` and `prediction_results` easy to read (by accessing named fields).
-            prediction_results = KerasPredictionModelOutput(
-                *common.squeeze_single_batch_dimension_for_np_arrays(prediction_results))
-            input_row = _KerasModelInputTensorsFormer(
-                self.config, estimator_action=EstimatorAction.Predict).from_model_input_form(input_row)
-            input_row = ReaderInputTensors(*common.squeeze_single_batch_dimension_for_np_arrays(input_row))
+    #         # make `input_row` and `prediction_results` easy to read (by accessing named fields).
+    #         prediction_results = KerasPredictionModelOutput(
+    #             *common.squeeze_single_batch_dimension_for_np_arrays(prediction_results))
+    #         input_row = _KerasModelInputTensorsFormer(
+    #             self.config, estimator_action=EstimatorAction.Predict).from_model_input_form(input_row)
+    #         input_row = ReaderInputTensors(*common.squeeze_single_batch_dimension_for_np_arrays(input_row))
 
-            # calculate the attention weight for each context
-            attention_per_context = self._get_attention_weight_per_context(
-                path_source_strings=input_row.path_source_token_strings,
-                path_strings=input_row.path_strings,
-                path_target_strings=input_row.path_target_token_strings,
-                attention_weights=prediction_results.attention_weights
-            )
+    #         # calculate the attention weight for each context
+    #         attention_per_context = self._get_attention_weight_per_context(
+    #             path_source_strings=input_row.path_source_token_strings,
+    #             path_strings=input_row.path_strings,
+    #             path_target_strings=input_row.path_target_token_strings,
+    #             attention_weights=prediction_results.attention_weights
+    #         )
 
-            # store the calculated prediction results in the wanted format.
-            model_prediction_results = ModelPredictionResults(
-                original_name=common.binary_to_string(input_row.target_string.item()),
-                topk_predicted_words=common.binary_to_string_list(prediction_results.topk_predicted_words),
-                topk_predicted_words_scores=prediction_results.topk_predicted_words_scores,
-                attention_per_context=attention_per_context,
-                code_vector=prediction_results.code_vectors)
-            all_model_prediction_results.append(model_prediction_results)
+    #         # store the calculated prediction results in the wanted format.
+    #         model_prediction_results = ModelPredictionResults(
+    #             original_name=common.binary_to_string(input_row.target_string.item()),
+    #             topk_predicted_words=common.binary_to_string_list(prediction_results.topk_predicted_words),
+    #             topk_predicted_words_scores=prediction_results.topk_predicted_words_scores,
+    #             attention_per_context=attention_per_context,
+    #             code_vector=prediction_results.code_vectors)
+    #         all_model_prediction_results.append(model_prediction_results)
 
-        return all_model_prediction_results
+    #     return all_model_prediction_results
 
     def _save_inner_model(self, path):
         if self.config.RELEASE:

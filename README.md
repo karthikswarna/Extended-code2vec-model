@@ -16,9 +16,9 @@
 
     - **Training and Evaluating the model**
 
-        - Set the variables in ```train.sh``` to point it to the right dataset. By default, it points to our "testdata_ast_cfg_ddg" dataset, created using the [Path Extractor](https://github.com/karthikswarna/Path-Extractor-for-C) tool.
+        - Set the variables in ```run.sh``` to point it to the right dataset. By default, it points to our "testdata_ast_cfg_ddg" dataset, created using the [Path Extractor](https://github.com/karthikswarna/Path-Extractor-for-C) tool.
         
-        - Uncomment one of the python commands in ```train.sh``` based on whether you are training the model or evaluating it on the test dataset. 
+        - Uncomment one of the python commands in ```run.sh``` based on whether you are training the model or evaluating it on the test dataset. 
         
         - Set the ```--reps``` and ```--max_contexts``` arguments in the python commands. Please note that ```--reps``` should be set to the **exact representations included in the dataset**, and ```--max_contexts``` for each type of path must also match the dataset.
             
@@ -28,10 +28,10 @@
 
         - You can edit the configuration hyper-parameters in the file ```config.py```, as explained [here](https://github.com/tech-srl/code2vec#configuration).
         
-        - Run the ```train.sh``` script:
+        - Run the ```run.sh``` script:
 
             ```
-            source train.sh
+            source run.sh
             ```
 * Note that we have only implemented the Keras version of the model. Pure TensorFlow implementation is currently not available. 
 

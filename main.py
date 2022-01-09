@@ -33,7 +33,7 @@ if __name__ == '__main__':
         with open(file_name, 'w') as f:
             model._write_code_vectors(f, code_vectors)
         config.log('Code vectors saved in csv format in: {}'.format(file_name))
-    if config.PREDICT:
-        predictor = InteractivePredictor(config, model)
-        predictor.predict()
+    # if config.PREDICT:
+    #     predictor = InteractivePredictor(config, model)
+    #     predictor.predict()
     model.close_session()
