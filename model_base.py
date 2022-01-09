@@ -149,9 +149,9 @@ class MocktailModelBase(abc.ABC):
     def evaluate(self) -> Optional[ModelEvaluationResults]:
         ...
 
-    @abc.abstractmethod
-    def predict(self, predict_data_lines: Iterable[str]) -> List[ModelPredictionResults]:
-        ...
+    # @abc.abstractmethod
+    # def predict(self, predict_data_lines: Iterable[str]) -> List[ModelPredictionResults]:
+    #     ...
 
     @abc.abstractmethod
     def _save_inner_model(self, path):
