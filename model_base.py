@@ -4,7 +4,7 @@ import os
 from typing import NamedTuple, Optional, List, Dict, Tuple, Iterable
 
 from common import common
-from vocabularies import Code2VecVocabs, VocabType
+from vocabularies import MocktailVocabs, VocabType
 from config import Config
 
 
@@ -35,7 +35,7 @@ class ModelPredictionResults(NamedTuple):
     code_vector: Optional[np.ndarray] = None
 
 
-class Code2VecModelBase(abc.ABC):
+class MocktailModelBase(abc.ABC):
     def __init__(self, config: Config):
         self.config = config
         self.config.verify()
@@ -45,7 +45,7 @@ class Code2VecModelBase(abc.ABC):
         if not config.RELEASE:
             self._init_num_of_examples()
         self._log_model_configuration()
-        self.vocabs = Code2VecVocabs(config)
+        self.vocabs = MocktailVocabs(config)
 
         if config.DOWNSTREAM_TASK == 'method_naming': # because target_vocab is None for classification
             self.vocabs.target_vocab.get_index_to_word_lookup_table()  # just to initialize it (if not already initialized)
@@ -58,7 +58,7 @@ class Code2VecModelBase(abc.ABC):
         self.log('')
         self.log('---------------------------------------------------------------------')
         self.log('---------------------------------------------------------------------')
-        self.log('---------------------- Creating code2vec model ----------------------')
+        self.log('---------------------- Creating mocktail model ----------------------')
         self.log('---------------------------------------------------------------------')
         self.log('---------------------------------------------------------------------')
 
@@ -100,7 +100,7 @@ class Code2VecModelBase(abc.ABC):
         return num_examples_in_dataset
 
     def load_or_build(self):
-        self.vocabs = Code2VecVocabs(self.config)
+        self.vocabs = MocktailVocabs(self.config)
         self._load_or_create_inner_model()
 
     def save(self, model_save_path=None):
@@ -113,7 +113,7 @@ class Code2VecModelBase(abc.ABC):
         self._save_inner_model(model_save_path)
 
     def _write_code_vectors(self, file, code_vectors_with_targets):
-        self.config.log("Saving code vectors to the file {}...".format(file.name))
+        # self.config.log("Saving code vectors to the file {}...".format(file.name))
         for target, vector in code_vectors_with_targets:
             file.write(str(target) + ' ')
             for num in vector[0]:

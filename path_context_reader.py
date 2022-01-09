@@ -5,7 +5,7 @@ from functools import reduce
 from typing import Dict, Tuple, NamedTuple, Union, Optional, Iterable
 
 from config import Config
-from vocabularies import Code2VecVocabs, _SpecialVocabWords_JoinedOovPad
+from vocabularies import MocktailVocabs, _SpecialVocabWords_JoinedOovPad
 
 class EstimatorAction(Enum):
     Train = 'train'
@@ -67,7 +67,7 @@ class ModelInputTensorsFormer(abc.ABC):
 
 class PathContextReader:
     def __init__(self,
-                 vocabs: Code2VecVocabs,
+                 vocabs: MocktailVocabs,
                  config: Config,
                  model_input_tensors_former: ModelInputTensorsFormer,
                  estimator_action: EstimatorAction,
@@ -93,7 +93,7 @@ class PathContextReader:
         self._dataset: Optional[tf.data.Dataset] = None
 
     @classmethod
-    def create_needed_vocabs_lookup_tables(cls, vocabs: Code2VecVocabs):
+    def create_needed_vocabs_lookup_tables(cls, vocabs: MocktailVocabs):
         vocabs.token_vocab.get_word_to_index_lookup_table()
         vocabs.path_vocab.get_word_to_index_lookup_table()
         if vocabs.target_vocab is not None:     # vocabs.target_vocab is None for classification.

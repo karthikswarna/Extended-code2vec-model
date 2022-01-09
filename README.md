@@ -1,4 +1,4 @@
-# <div align="center">**Extended-code2vec**</div>
+# <div align="center">**Mocktail Model (Extended-code2vec)**</div>
 
 ## **Introduction**
 * This is an extension to the popular [code2vec](https://github.com/tech-srl/code2vec) model, which learns a distributed representations for code by taking its ASTs paths input. 

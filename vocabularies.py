@@ -144,13 +144,13 @@ class Vocab:
 WordFreqDictType = Dict[str, int]
 
 
-class Code2VecWordFreqDicts(NamedTuple):
+class MocktailWordFreqDicts(NamedTuple):
     token_to_count: WordFreqDictType
     path_to_count: WordFreqDictType
     target_to_count: WordFreqDictType
 
 
-class Code2VecVocabs:
+class MocktailVocabs:
     def __init__(self, config: Config):
         self.config = config
         self.token_vocab: Optional[Vocab] = None
@@ -228,8 +228,8 @@ class Code2VecVocabs:
                 self.target_vocab.save_to_file(file)
         self._already_saved_in_paths.add(vocabularies_save_path)
 
-    # Loads freq_dicts from .dict.c2v file
-    def _load_word_freq_dict(self) -> Code2VecWordFreqDicts:
+    # Loads freq_dicts from .dict.txt file
+    def _load_word_freq_dict(self) -> MocktailWordFreqDicts:
         assert self.config.is_training
         self.config.log('Loading word frequencies dictionaries from: %s ... ' % self.config.word_freq_dict_path)
         with open(self.config.word_freq_dict_path, 'rb') as file:
@@ -238,7 +238,7 @@ class Code2VecVocabs:
             target_to_count = pickle.load(file) if self.config.DOWNSTREAM_TASK == 'method_naming' else None
         self.config.log('Done loading word frequencies dictionaries.')
         # assert all(isinstance(item, WordFreqDictType) for item in {token_to_count, path_to_count, target_to_count})
-        return Code2VecWordFreqDicts(
+        return MocktailWordFreqDicts(
             token_to_count=token_to_count, path_to_count=path_to_count, target_to_count=target_to_count)
 
     def get(self, vocab_type: VocabType) -> Vocab:

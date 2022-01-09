@@ -146,7 +146,7 @@ class Config:
         self.DOWNSTREAM_TASK: str = '' # in {'method_naming', 'classification'}
         # self.DL_FRAMEWORK: str = ''  # in {'keras', 'tensorflow'}
 
-        # Automatically filled by `Code2VecModelBase._init_num_of_examples()`.
+        # Automatically filled by `MocktailModelBase._init_num_of_examples()`.
         self.NUM_TRAIN_EXAMPLES: int = 0
         self.NUM_TEST_EXAMPLES: int = 0
 
@@ -158,9 +158,6 @@ class Config:
             self.load_from_args()
         if verify:
             self.verify()
-
-        print(self.CODE_REPRESENTATIONS)
-        print(self.MAX_CONTEXTS)
 
     @property
     def context_vector_size(self) -> int:
@@ -186,7 +183,7 @@ class Config:
 
     @property
     def train_steps_per_epoch(self) -> int:
-        return int(self.NUM_TRAIN_EXAMPLES / self.TRAIN_BATCH_SIZE) if self.TRAIN_BATCH_SIZE else 0
+        return ceil(self.NUM_TRAIN_EXAMPLES / self.TRAIN_BATCH_SIZE) if self.TRAIN_BATCH_SIZE else 0
 
     @property
     def test_steps(self) -> int:
@@ -202,13 +199,13 @@ class Config:
     def train_data_path(self) -> Optional[str]:
         if not self.is_training:
             return None
-        return '{}.train.c2v'.format(self.TRAIN_DATA_PATH_PREFIX)
+        return '{}.train.txt'.format(self.TRAIN_DATA_PATH_PREFIX)
 
     @property
     def word_freq_dict_path(self) -> Optional[str]:
         if not self.is_training:
             return None
-        return '{}.dict.c2v'.format(self.TRAIN_DATA_PATH_PREFIX)
+        return '{}.dict.txt'.format(self.TRAIN_DATA_PATH_PREFIX)
 
     @classmethod
     def get_vocabularies_path_from_model_path(cls, model_file_path: str) -> str:
@@ -279,7 +276,7 @@ class Config:
 
     def get_logger(self) -> logging.Logger:
         if self.__logger is None:
-            self.__logger = logging.getLogger('code2vec')
+            self.__logger = logging.getLogger('mocktail')
             self.__logger.setLevel(logging.INFO)
             self.__logger.handlers = []
             self.__logger.propagate = 0

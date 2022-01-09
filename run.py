@@ -2,25 +2,25 @@ import os
 from vocabularies import VocabType
 from config import Config
 # from interactive_predict import InteractivePredictor
-from model_base import Code2VecModelBase
+from model_base import MocktailModelBase
 
 
-def load_model_dynamically(config: Config) -> Code2VecModelBase:
+def load_model_dynamically(config: Config) -> MocktailModelBase:
     # assert config.DL_FRAMEWORK in {'tensorflow', 'keras'}
     # if config.DL_FRAMEWORK == 'tensorflow':
-    #     from tensorflow_model import Code2VecModel
+    #     from tensorflow_model import MocktailModel
     # elif config.DL_FRAMEWORK == 'keras':
-    #     from keras_model import Code2VecModel
+    #     from keras_model import MocktailModel
 
-    from keras_model import Code2VecModel
-    return Code2VecModel(config)
+    from keras_model import MocktailModel
+    return MocktailModel(config)
 
 
 if __name__ == '__main__':
     config = Config(set_defaults=True, load_from_args=True, verify=True)
 
     model = load_model_dynamically(config)
-    config.log('Done creating code2vec model')
+    config.log('Done creating mocktail model')
 
     if config.is_training:
         model.train()
@@ -41,9 +41,10 @@ if __name__ == '__main__':
                     loss=eval_results.loss, accuracy=eval_results.accuracy))
     if config.EXPORT_CODE_VECTORS and (config.is_training or config.is_loading):
         code_vectors = model.export_code_vectors(config.is_training)
-        with open('code_vectors.csv', 'w') as f:
+        file_name = '_'.join(os.path.basename(config.data_path(not config.is_training)).split('.')[:-1]) + '_embeddings.csv'
+        with open(file_name, 'w') as f:
             model._write_code_vectors(f, code_vectors)
-        config.log('Code vectors saved in csv format in: code_vectors.csv')
+        config.log('Code vectors saved in csv format in: {}'.format(file_name))
     if config.PREDICT:
         predictor = InteractivePredictor(config, model)
         predictor.predict()

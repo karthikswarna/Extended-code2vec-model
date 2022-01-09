@@ -10,8 +10,8 @@ type=ast_cfg_ddg
 dataset_name=testdata
 data_dir=data/${dataset_name}/${type}
 data=${data_dir}/${dataset_name}_${type}
-val_data=${data_dir}/${dataset_name}_${type}.val.c2v
-test_data=${data_dir}/${dataset_name}_${type}.test.c2v
+val_data=${data_dir}/${dataset_name}_${type}.val.txt
+test_data=${data_dir}/${dataset_name}_${type}.test.txt
 model_dir=models/${dataset_name}/${type}
 
 mkdir -p ${model_dir}

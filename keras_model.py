@@ -19,12 +19,12 @@ from keras_topk_word_predictions_layer import TopKWordPredictionsLayer
 from keras_words_subtoken_metrics import WordsSubtokenPrecisionMetric, WordsSubtokenRecallMetric, WordsSubtokenF1Metric
 from config import Config
 from common import common
-from model_base import Code2VecModelBase, ModelEvaluationResults, ModelPredictionResults
+from model_base import MocktailModelBase, ModelEvaluationResults, ModelPredictionResults
 from keras_checkpoint_saver_callback import ModelTrainingStatus, ModelTrainingStatusTrackerCallback,\
     ModelCheckpointSaverCallback, MultiBatchCallback, ModelTrainingProgressLoggerCallback
 
 
-class Code2VecModel(Code2VecModelBase):
+class MocktailModel(MocktailModelBase):
     def __init__(self, config: Config):
         self.keras_train_model: Optional[keras.Model] = None
         self.keras_eval_model: Optional[keras.Model] = None
@@ -33,7 +33,7 @@ class Code2VecModel(Code2VecModelBase):
         self.training_status: ModelTrainingStatus = ModelTrainingStatus()
         self._checkpoint: Optional[tf.train.Checkpoint] = None
         self._checkpoint_manager: Optional[tf.train.CheckpointManager] = None
-        super(Code2VecModel, self).__init__(config)
+        super(MocktailModel, self).__init__(config)
 
     def _create_keras_model(self):
         # Each input sample consists of a bag of x`MAX_CONTEXTS` tuples (source_terminal, path, target_terminal).
@@ -126,10 +126,10 @@ class Code2VecModel(Code2VecModelBase):
                 name='target_string')(target_index)
 
             self.keras_eval_model = keras.Model(
-                inputs=inputs, outputs=[target_index, topk_predicted_words], name="code2vec-keras-model")
+                inputs=inputs, outputs=[target_index, topk_predicted_words], name="mocktail-keras-model")
         else: # classification
             self.keras_eval_model = keras.Model(
-                inputs=inputs, outputs=target_index, name="code2vec-keras-model")
+                inputs=inputs, outputs=target_index, name="mocktail-keras-model")
 
 
 
@@ -273,13 +273,13 @@ class Code2VecModel(Code2VecModelBase):
         for input_row in dataset:
             inputs = input_row[0][:4 * len(self.config.CODE_REPRESENTATIONS)]
             target = input_row[1]['target_string'] if len(input_row[1]) > 1 else input_row[1]
-            target = target.numpy()[0].decode('UTF-8')
+            target = target.numpy()[0] if isinstance(target.numpy()[0], np.integer) else target.numpy()[0].decode('UTF-8')
             vector = self.get_code_vector_function(inputs)
             code_vectors.append((target, vector))
 
         return code_vectors
 
-    # This need to be updated in this file.
+    # TODO: Modify the predict functionality for Mocktail model.
     def predict(self, predict_data_rows: Iterable[str]) -> List[ModelPredictionResults]:
         predict_input_reader = self._create_data_reader(estimator_action=EstimatorAction.Predict)
         input_iterator = predict_input_reader.process_and_iterate_input_from_data_lines(predict_data_rows)
@@ -423,14 +423,14 @@ class ModelEvaluationCallback(MultiBatchCallback):
         (iii) we want the evaluation to occur once per 1K batches (rather than only once per epoch).
     """
 
-    def __init__(self, code2vec_model: 'Code2VecModel'):
-        self.code2vec_model = code2vec_model
+    def __init__(self, mocktail_model: 'MocktailModel'):
+        self.mocktail_model = mocktail_model
         self.avg_eval_duration: Optional[int] = None
         
         # log_dir_eval = "logs/metrics/eval_" + common.now_str()
         # self.file_writer = tf.summary.create_file_writer(log_dir_eval)
         
-        super(ModelEvaluationCallback, self).__init__(self.code2vec_model.config.NUM_TRAIN_BATCHES_TO_EVALUATE)
+        super(ModelEvaluationCallback, self).__init__(self.mocktail_model.config.NUM_TRAIN_BATCHES_TO_EVALUATE)
 
     def on_epoch_end(self, epoch, logs=None):
         self.perform_evaluation(epoch)
@@ -440,37 +440,37 @@ class ModelEvaluationCallback(MultiBatchCallback):
 
     def perform_evaluation(self, epoch):
         if self.avg_eval_duration is None:
-            self.code2vec_model.log('Evaluating...')
+            self.mocktail_model.log('Evaluating...')
         else:
-            self.code2vec_model.log('Evaluating... (takes ~{})'.format(
+            self.mocktail_model.log('Evaluating... (takes ~{})'.format(
                 str(datetime.timedelta(seconds=int(self.avg_eval_duration)))))
 
         eval_start_time = time.time()
-        evaluation_results = self.code2vec_model.evaluate()
+        evaluation_results = self.mocktail_model.evaluate()
         eval_duration = time.time() - eval_start_time
         if self.avg_eval_duration is None:
             self.avg_eval_duration = eval_duration
         else:
             self.avg_eval_duration = eval_duration * 0.5 + self.avg_eval_duration * 0.5
-        self.code2vec_model.log('Done evaluating (took {}). Evaluation results:'.format(
+        self.mocktail_model.log('Done evaluating (took {}). Evaluation results:'.format(
             str(datetime.timedelta(seconds=int(eval_duration)))))
 
-        if self.code2vec_model.config.DOWNSTREAM_TASK == 'method_naming':     # Accuracy is reported only for classification.
-            self.code2vec_model.log(
+        if self.mocktail_model.config.DOWNSTREAM_TASK == 'method_naming':     # Accuracy is reported only for classification.
+            self.mocktail_model.log(
                 '    loss: {loss:.4f}, f1: {f1:.4f}, recall: {recall:.4f}, precision: {precision:.4f}'.format(
                     loss=evaluation_results.loss, f1=evaluation_results.subtoken_f1,
                     recall=evaluation_results.subtoken_recall, precision=evaluation_results.subtoken_precision))
             top_k_acc_formated = ['top{}: {:.4f}'.format(i, acc) for i, acc in enumerate(evaluation_results.topk_acc, start=1)]
             for top_k_acc_chunk in common.chunks(top_k_acc_formated, 5):
-                self.code2vec_model.log('    ' + (', '.join(top_k_acc_chunk)))
+                self.mocktail_model.log('    ' + (', '.join(top_k_acc_chunk)))
         else:   # classification
-            self.code2vec_model.log(
+            self.mocktail_model.log(
                 '    loss: {loss:.4f}, accuracy: {accuracy:.4f}'.format(
                     loss=evaluation_results.loss, accuracy=evaluation_results.accuracy))
 
-        # if self.code2vec_model.config.USE_TENSORBOARD:
+        # if self.mocktail_model.config.USE_TENSORBOARD:
         #     with self.file_writer.as_default():
-        #         self.code2vec_model.log("*****************************************%^$#&*&(^*&%^#$^&*()&*(^&%^%#$%^&*******************************")
+        #         self.mocktail_model.log("*****************************************%^$#&*&(^*&%^#$^&*()&*(^&%^%#$%^&*******************************")
         #         tf.summary.scalar('Subtoken_F1', data=evaluation_results.subtoken_f1, step=epoch + 1)
         #         tf.summary.scalar('Subtoken_Recall', data=evaluation_results.subtoken_recall, step=epoch + 1)
         #         tf.summary.scalar('Subtoken_Precision', data=evaluation_results.subtoken_precision, step=epoch + 1)
